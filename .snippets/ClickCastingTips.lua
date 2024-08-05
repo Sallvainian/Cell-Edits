@@ -1,6 +1,7 @@
 -------------------------------------------------
--- 2024-07-03 19:50:03 GMT+8
--- show tips for click-casting bindings (spell only)
+-- 2024-08-04 19:50:03 UTC-5
+-- show tips for click-casting bindings (spell, general, macro, and item)
+-- Note: For clarity, using item only displays the text "Item" and not the actual item itself as trying to get the actual name and icon breaks the tooltip.
 -- config
 -------------------------------------------------
 local point = "TOPRIGHT"
@@ -23,7 +24,7 @@ tooltip:SetBackdropBorderColor(Cell:GetAccentColorRGB())
 tooltip:SetOwner(UIParent, "ANCHOR_NONE")
 
 ------------------------------------------------------------------------------
--- If you want to use Button4 and Button5 as extra modifer keys
+-- If you want to use Button4 and Button5 as extra modifier keys
 -- remove the '} --' section from below 
 -- as well as the '--' that comments out Buttons 4 and 5
 ------------------------------------------------------------------------------
@@ -37,7 +38,7 @@ local mouseKeyIDs = {
 }
 
 local function GetBindingDisplay(modifier, key)
-    modifier = modifier:gsub("%-", "|cff777777+|r")
+    modifier = modifier:gsub("%-", "+")
     modifier = modifier:gsub("alt", "Alt")
     modifier = modifier:gsub("ctrl", "Ctrl")
     modifier = modifier:gsub("shift", "Shift")
@@ -54,8 +55,8 @@ end
 
 local function DecodeKeyboard(fullKey)
     fullKey = string.gsub(fullKey, "alt", "alt-")
-    fullKey = string.gsub(fullKey, "ctrl", "ctrl-")
-    fullKey = string.gsub(fullKey, "shift", "shift-")
+    fullKey = string.gsub("ctrl", "ctrl-")
+    fullKey = string.gsub("shift", "shift-")
     local modifier, key = strmatch(fullKey, "^(.*-)(.+)$")
     if not modifier then -- no modifier
         modifier = ""
@@ -111,6 +112,11 @@ local function GetCurrentModifiers()
     return currentModifiers
 end
 
+-- Define the CapitalizeWords function before the ShowTips function
+local function CapitalizeWords(str)
+    return str:gsub("(%a)([%w_']*)", function(first, rest) return first:upper() .. rest:lower() end)
+end
+
 local function ShowTips()
     tooltip:SetOwner(CellMainFrame, "ANCHOR_NONE")
     tooltip:SetPoint(point, relativeTo, relativePoint, offsetX, offsetY)
@@ -122,21 +128,40 @@ local function ShowTips()
         local found = false
         for _, t in pairs(clickCastingTable) do
             local modifier, bindKey, bindType, bindAction = DecodeDB(t)
-            if bindType == "spell" and modifier == currentModifiers and bindKey == button then
-                local bindActionDisplay, icon
-                bindAction, icon = F:GetSpellInfo(bindAction)
-                if bindAction then
-                    bindActionDisplay = bindAction.." |T"..icon..":16:16|t"  -- Ensures uniform icon size
+            if modifier == currentModifiers and bindKey == button then
+                local bindActionDisplay
+                if bindType == "spell" then
+                    local spellName, _, icon = GetSpellInfo(bindAction)
+                    if spellName then
+                        bindActionDisplay = spellName .. " |T" .. icon .. ":16:16|t"
+                    else
+                        bindActionDisplay = "|cFFFF3030" .. L["Invalid"]
+                    end
+                elseif bindType == "general" then
+                    if bindAction == "togglemenu" then
+                        bindActionDisplay = "Menu"
+                    else
+                        bindActionDisplay = CapitalizeWords(bindAction)
+                    end
+                elseif bindType == "item" then
+                    bindActionDisplay = "Item"  -- Display the text "Item"
+                elseif bindType == "macro" then
+                    local macroName, icon = GetMacroInfo(bindAction)
+                    if macroName then
+                        bindActionDisplay = macroName .. " |T" .. icon .. ":16:16|t"
+                    else
+                        bindActionDisplay = "|cFFFF3030" .. L["Invalid"]
+                    end
                 else
-                    bindActionDisplay = "|cFFFF3030"..L["Invalid"]
+                    bindActionDisplay = "|cFFFF3030" .. L["Unknown"]
                 end
-                tooltip:AddDoubleLine(GetBindingDisplay(modifier, bindKey), "|cFFFFFFFF"..bindActionDisplay)
+                tooltip:AddDoubleLine(GetBindingDisplay(modifier, bindKey), "|cFFFFFFFF" .. bindActionDisplay)
                 found = true
                 break
             end
         end
         if not found then
-            tooltip:AddDoubleLine(GetBindingDisplay(currentModifiers, button), "|cFFFF3030"..L["Invalid"])
+            tooltip:AddDoubleLine(GetBindingDisplay(currentModifiers, button), "|cFFFF3030" .. L["Invalid"])
         end
     end
     
